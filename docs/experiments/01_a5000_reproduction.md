@@ -157,6 +157,27 @@ PY
 printf '\n/data/\n/runs/\n' >> .git/info/exclude
 ```
 
+### ETT 输入变量数错误（2026-10-20 修复）
+
+原始 `PDETimeDataset.choose_temporal_features()` **先创建所有日历特征列**，再只把随时间变化的列加入 `temporal_feature_names`。对于 ETTm1 的 `second`（恒为 0），以及 ETTh 的 `minute` / `second`（恒为 0），这些额外列会残留在 `self.features` 中，造成模型的通道数错误。例如 ETTm1 原本 7 个变量变为 8 个，原始 `train.py` 的 `LayerNorm([7, 64])` 会报 `got input of size [32, 8, 64]`。
+
+本仓库已修复为：**只有发生变化的时间特征才写入 DataFrame**。请更新 `src/PDETime/preprocess/dataloader.py` 后重新训练；旧训练生成的 `best.pt` 使用错误的变量维度，不要与修复后模型混用。
+
+在项目根目录可验证：
+
+```bash
+python - <<'PY'
+import pandas as pd
+from src.PDETime.preprocess.dataloader import PDETimeDataset
+source = pd.read_csv('data/ETTm1.csv')
+train, test, val = PDETimeDataset.train_test_val_split(source, horizon=96, lookback=480, val_ratio=0.1, test_ratio=0.2)
+print('Spatial channels:', train.features.shape[1])
+print('Temporal channels:', train.temporal_features.shape[1])
+assert train.features.shape[1] == 7
+assert train.temporal_features.shape[1] == 7
+PY
+```
+
 ## 4. 运行前理解三个工程问题
 
 1. **聚合层未注册**：`src/PDETime/models/encoder.py` 使用普通 Python list 存储 `agg_layers`，导致 `model.parameters()`、`.to(cuda)` 和 `state_dict()` 均不涵盖该层。新入口在模型构建后用 `nn.ModuleList` 包装它，**不改原模型源码**。若直接运行原始 `train.py`，该缺陷在 GPU 上可能造成设备不一致。
