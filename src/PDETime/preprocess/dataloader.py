@@ -71,8 +71,13 @@ class PDETimeDataset(Dataset):
         df[time_index_name] = to_datetime(df[time_index_name])
         temporal_feature_names = []
         for feature in PDETimeDataset.TEMPORAL_FEATURE_NAMES:
-            df[feature] = df[time_index_name].dt.__getattribute__(feature)
-            if len(df[feature].unique()) > 1:
+            values = df[time_index_name].dt.__getattribute__(feature)
+            # Only add varying calendar features to the DataFrame. Previously
+            # constant features (e.g. 'second' for ETTm1, also 'minute' for
+            # ETTh) were added but excluded from temporal_feature_names.
+            # They then leaked into self.features as extra target channels.
+            if values.nunique() > 1:
+                df[feature] = values
                 temporal_feature_names.append(feature)
         return temporal_feature_names
         
