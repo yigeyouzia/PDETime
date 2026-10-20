@@ -92,6 +92,37 @@ assert torch.cuda.is_available(), "CUDA 不可用，请先排查驱动/torch whe
 PY
 ```
 
+### GLIBC 2.28 报错时的兼容环境替代方案
+
+如果执行 `conda create -n pdetime python=3.10 -y` 后，激活环境运行 `python --version` 提示：
+
+```text
+python: /lib/x86_64-linux-gnu/libc.so.6: version 'GLIBC_2.28' not found
+```
+
+这是 **Conda 下载的 Python 二进制与 Linux 系统 GLIBC 版本不兼容**，与 A5000 或 CUDA 无关。先收集系统版本：
+
+```bash
+cat /etc/os-release
+ldd --version | head -n 1
+conda list -n pdetime python
+```
+
+优先**保留旧环境**，从 conda-forge 单独创建兼容环境，严格只从该渠道选择包，避免默认 Anaconda 渠道选到依赖较新 GLIBC 的 Python：
+
+```bash
+conda deactivate
+conda create -n pdetime_cf --override-channels -c conda-forge python=3.10 pip -y
+conda activate pdetime_cf
+which python
+python --version
+python -m pip --version
+```
+
+`conda-forge` 官方默认 Linux GLIBC 基线为 2.17，但个别包可能要求更高版本，因此最终仍需以 `ldd --version` 和实际 `python --version` 是否成功为准。如果 Python 可启动，继续运行本节上面的 PyTorch / NumPy / Pandas 等依赖安装命令；若仍报 GLIBC，暂时停止安装并核对系统、Conda 包来源和 `LD_LIBRARY_PATH`。**不要自行覆盖系统 libc.so.6，也不要通过 CONDA_OVERRIDE_GLIBC 伪装系统版本**。
+
+参考：[conda-forge GLIBC 兼容性](https://conda-forge.org/docs/maintainer/knowledge_base/) · [conda-forge 渠道隔离](https://conda-forge.org/docs/user/transitioning_from_defaults/)。
+
 ## 3. 下载 ETTm1 数据集
 
 **权威数据来源**：[zhouhaoyi/ETDataset](https://github.com/zhouhaoyi/ETDataset/tree/main/ETT-small)。当前训练入口使用的是 **ETTm1**，不是 ETTh1，也不是任意 PDE 模拟数据；ETTm1 记录了约两年、每 15 分钟一条的变压器数据，官方文件 70,080 行，CSV 约 10 MB。
@@ -243,7 +274,7 @@ PY
 
 | 异常 | 优先检查 |
 | --- | --- |
-| `No module named src` | 必须从 `PDETime/` 根目录运行 `python scripts/reproduce_a5000.py` |
+| `No module named src` | 更新至包含入口路径修复的最新版脚本，并从仓库根目录执行 |
 | `torch.cuda.is_available() == False` | 驱动、PyTorch wheel / Conda 环境、CUDA_VISIBLE_DEVICES |
 | `FileNotFoundError: data/ETTm1.csv` | 下载失败、当前工作目录不在仓库根目录 |
 | 形状不匹配 | `lookback+horizon` 必须能被 32 整除；确认读的是 ETTm1 |
