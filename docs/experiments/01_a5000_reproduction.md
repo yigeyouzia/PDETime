@@ -279,7 +279,7 @@ PY
 | `FileNotFoundError: data/ETTm1.csv` | 下载失败、当前工作目录不在仓库根目录 |
 | 形状不匹配 | `lookback+horizon` 必须能被 32 整除；确认读的是 ETTm1 |
 | CUDA OOM | `nvidia-smi` 检查其它任务，先将 batch 降至 8 或 2 |
-| `Expected all tensors to be on the same device` | 使用新 runner，勿直接照搬未修复的 `train.py` |
+| `decoder.py` 中 `torch.cat` 报 `cuda:0` 与 `cpu` 不一致 | 已在 GitHub 修复：将 `torch.ones(batch_size, window_length, 1)` 改为 `x.new_ones(batch_size, window_length, 1)`；已有服务器副本需同步 `src/PDETime/models/decoder.py` |
 | CPU 很慢 | 确认 `--device cuda`、GPU 确实可见 |
 | 误认为测试指标很差 | 对照历史窗口、未来残差和未归一化目标定义；检查三个 loss 的定义 |
 | 大量重复输出 `idx, len` | 原始 dataloader 有 print，改用新 runner |
