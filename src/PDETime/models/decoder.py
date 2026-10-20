@@ -31,7 +31,7 @@ class RidgeRegression(nn.Module):
             torch.Tensor: Predicted bias tensor of shape (batch_size, output_dim).
         """
         batch_size, window_length, _ = x.shape
-        xb = torch.cat([x, torch.ones(batch_size, window_length, 1)], dim=-1)
+        xb = torch.cat([x, x.new_ones(batch_size, window_length, 1)], dim=-1)
         xb_L = xb.mT @ xb
         xb_L.diagonal(dim1=-2, dim2=-1).add_(self.lambda_)
         wb = torch.linalg.solve(xb_L, xb.mT @ y)
