@@ -161,3 +161,8 @@ cython_debug/
 
 # PyTorch models
 *.pt
+
+# Local datasets and reproducibility outputs
+data/
+runs/
+.DS_Store
